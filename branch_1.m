@@ -12,7 +12,7 @@ b = 14;                % [m] Apertura alare
 c = 1;                 % [m] Corda
 e = c/4;               % [m] Distanza AC-EA (Positivo se AC avanti a EA)
 gamma = 15 * pi/180;   % [rad] Angolo del puntone
-xB = -0.33;                % [m] Posizione della cerniera B (Da adattare se diverso)
+xB = -0.1;                % [m] Posizione della cerniera B (Da adattare se diverso)
 
 % Calcolo rigidezza equivalente del puntone lungo l'asse z
 L_strut = (b/2) / cos(gamma);            % Lunghezza fisica del puntone
@@ -91,7 +91,7 @@ for N = N_values
     % Filtra solo gli autovalori fisici (reali e strettamente positivi)
     valori_fisici = autovalori(imag(autovalori) == 0 & real(autovalori) > 0);
     
-    if isempty(valori_fisici)
+    if isempty(autovalori)
         qD_history(N) = NaN; % Nessuna instabilità trovata
     else
         qD_history(N) = min(valori_fisici); % q_D è il valore critico più basso
