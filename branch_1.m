@@ -19,7 +19,7 @@ L_strut = (b/2) / cos(gamma);            % Lunghezza fisica del puntone
 k_eq_z = (EA / L_strut) * sin(gamma)^2;  % Rigidezza trasversale equivalente
 
 %% 2. Impostazioni dello studio di convergenza
-N_max = 8; % Numero massimo di funzioni di forma da testare (per w e per theta)
+N_max = 6; % Numero massimo di funzioni di forma da testare (per w e per theta)
 qD_history = zeros(1, N_max); % Vettore per salvare le pressioni di divergenza
 N_values = 1:N_max;
 
