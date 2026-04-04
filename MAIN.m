@@ -17,7 +17,7 @@ close all
 
 % CODE
 %% ============================================================
-%                    PARAMETERS STRUCT
+%                    PARAMETERS DEFINITION
 %% ============================================================
 % All physical and geometrical parameters are grouped here
 % to keep the code clean and easily modifiable.
@@ -28,19 +28,20 @@ strut.EA = 1e8;          % Axial stiffness of the strut [N]
 
 wing.CL_a = 2*pi;       % Lift curve slope [1/rad]
 wing.CL_beta = pi;      % Lift variation due to control deflection
-wing.CM_beta = -0.1;    % Moment coefficient due to control
+wing.CM_beta = -0.1;    % Moment coefficient due to control deflection
 
 wing.b = 14;            % Wing span [m]
 wing.c = 1;             % Chord length [m]
-wing.e = wing.c/4;     % Distance between Aerodynamic Center and Elastic Axis
+wing.e = wing.c/4;     % Distance between Aerodynamic Center and Elastic Axis [m]
 
+strut.gamma_deg = 15;      % Reference strut angle [deg]
 strut.gamma = deg2rad(15); % Reference strut angle [rad]
 wing.ba = 2.5;           % Aileron span [m]
-wing.beta0= deg2rad(10);     % Input for Point 3
+wing.beta0= deg2rad(10);     % Input for Point c
 
 
 %% ============================================================
-%                      POINT 1
+%                      POINT 1.a
 %             AEROELASTIC DIVERGENCE ANALYSIS
 %% ============================================================
 % Compute the divergence dynamic pressure q_D as a function
@@ -117,7 +118,7 @@ text(0.3, 4e5, 'Trailing Edge','FontWeight','bold');
 A.x_critic = (A.K11 * A.A22) / (A.K12_coeff * A.A12);
 
 %% ============================================================
-%                      POINT 2
+%                      POINT 1.b
 %        CONTROL EFFECTIVENESS (FIXED POINT A)
 %% ============================================================
 % Study how control effectiveness E_C varies with dynamic pressure
@@ -147,6 +148,12 @@ B.qd_vec = linspace(0, 3e5, 1000); % dynamic pressure range
 
 figure('Color','w'); hold on; grid on;
 colors = {'r','b','g', 'c', 'm'};
+% ------------------------------------------------------------
+% Print Header for Control Reversal Pressures
+% ------------------------------------------------------------
+fprintf('\n============================================================\n');
+fprintf('   Dynamic Pressures for Control Reversal (E_C = 0)\n');
+fprintf('============================================================\n');
 
 for j = 1:length(B.gamma_deg)
 
@@ -212,42 +219,32 @@ for j = 1:length(B.gamma_deg)
         % Check stability using eigenvalues of the aeroelastic system
         B.eig_vals = eig(B.K - B.q*B.A);
 
-
-        % Only compute solution if system is still stable
-        % metto questa condizoni in quanto voglio analizzare quando per
-        % ciascun caso di angoo gamma ottengo la divergenza (quindi quando
-        % il determiante della matrice [K - q*A] diventa zero => ovvero
-        % quando almeno uno degli autovalori smette di essere positivo) 
-        
-
-        % !! decommenta se vuoigrafici completi senza intrruzione (e
-        % commenta sotto) !!
-        % if all(eig_vals > 0) 
-        %     sol = (K - q*A) \ (q * F_beta);
-        %     theta = sol(2); % torsional response
-        % 
-        %     % Control effectiveness
-        %     Ec(i) = 1 + (param.b * param.CL_a * theta) / ...
-        %                 (2 * param.CL_beta * param.ba);
-        % 
-        % else
-        %     % Outside physical region (post-divergence)
-        %     Ec(i) = NaN;
-        % end
-
-
-       
-        % !! decommenta se vuoigrafici completi senza intrruzione (e
-        % commenta sopra) !! 
         B.sol = (B.K - B.q*B.A) \ (B.q * B.F_beta);
             B.theta = B.sol(2); % torsional response
 
             
             % Control Effectiveness expression
             B.Ec(i) = 1 + (wing.b * wing.CL_a * B.theta) / ...
-            (2 * wing.CL_beta * wing.beta0 * wing.ba);
+            (2 * wing.CL_beta * wing.ba);         
     end
-
+    % --------------------------------------------------------
+    % Find the control reversal point (E_C = 0)
+    % --------------------------------------------------------
+    % Find the index where E_C crosses from positive to negative
+    B.idx_zero = find(B.Ec(1:end-1) > 0 & B.Ec(2:end) <= 0, 1);
+    
+    if ~isempty(B.idx_zero)
+        % Linear interpolation to find the exact q value between the two points
+        B.q1 = B.qd_vec(B.idx_zero);
+        B.q2 = B.qd_vec(B.idx_zero + 1);
+        B.Ec1 = B.Ec(B.idx_zero);
+        B.Ec2 = B.Ec(B.idx_zero + 1);
+        
+        B.q_R_exact = B.q1 - B.Ec1 * (B.q2 - B.q1) / (B.Ec2 - B.Ec1);
+        fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = %8.2f [Pa]\n', B.gamma_deg(j), B.q_R_exact);
+    else
+        fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = Out of bounds\n', B.gamma_deg(j));
+    end
     % Plot curve
     plot(B.qd_vec, B.Ec, 'Color', colors{j}, 'LineWidth',2, ...
         'DisplayName',['\gamma = ', num2str(B.gamma_deg(j)), '°']);
@@ -267,7 +264,7 @@ legend('Location','best');
 
 
 %% ============================================================
-%                      POINT 3
+%                      POINT 1.c
 %             DEFORMED SHAPE COMPARISON
 %% ============================================================
 % 1. Reference: No Strut Divergence
@@ -311,7 +308,7 @@ ylabel('Twist \theta(y) [deg]'); xlabel('y [m]'); grid on;
 
 
 %% ============================================================
-%                      POINT 4
+%                      POINT 1.d
 %       CONTROL REVERSAL vs STRUT POSITION (N=1)
 %% ============================================================ 
 % Find the dynamic pressure q_R at which control effectiveness 
@@ -401,12 +398,10 @@ xlim([-0.5, 0.5]);
 % If needed, uncomment the line below:
 % ylim([-5e5, 5e5]); 
 legend('Location', 'best');
-
-%%
-% =========================================================================
-% Point 6: Ritz-Galerkin Convergence Study
-% =========================================================================
-
+%% ============================================================
+%                      POINT 1.e
+%           RITZ-GALERKIN CONVERGENCE STUDY
+%% ============================================================ 
 % Convergence study settings
 E.N_max = 8; % Maximum number of shape functions to test (for w and theta)
 E.qD_history = zeros(1, E.N_max); % Vector to store divergence pressures
@@ -504,7 +499,7 @@ end
 
 
 %% ============================================================
-%                      POINT 5
+%                      POINT 1.f
 %    MULTIDISCIPLINARY ANALYSIS: DIVERGENCE vs GEOMETRY
 %% ============================================================
 % Analyze the trade-off between q_D and strut length L_s.
@@ -513,7 +508,7 @@ end
 F.N = 5;                  % Ritz-Galerkin order
 F.toll = 1e-6;
 % --- Iteration Vectors ---
-F.gamma_vec_deg = strut.gamma:1:40;         
+F.gamma_vec_deg = strut.gamma_deg:1:40;         
 F.q_div_history = zeros(size(F.gamma_vec_deg));
 F.strut_length = zeros(size(F.gamma_vec_deg));
 
@@ -568,8 +563,8 @@ for step = 1:length(F.gamma_vec_deg)
     
     [~, F.D_eig] = eig(F.K_global, F.A_global);
     F.eigs_val = diag(F.D_eig);
-    F.physical_roots = F.eigs_val(imag(F.eigs_val) == 0 & real(F.eigs_val) > 0 & ~isinf(F.eigs_val));
-    
+    %F.physical_roots = F.eigs_val(imag(F.eigs_val) == 0 & real(F.eigs_val) > 0 & ~isinf(F.eigs_val));
+    F.physical_roots = F.eigs_val(abs(imag(F.eigs_val)) < F.toll & real(F.eigs_val) > 0 & ~isinf(F.eigs_val));
     if isempty(F.physical_roots)
         F.q_div_history(step) = NaN;
     else
@@ -599,3 +594,79 @@ title(F.title_str, 'FontSize', 12);
 F.limit_angle = rad2deg(atan(wing.zA / (wing.b/2)));
 xline(F.limit_angle, ':k', 'Span Limit', 'LineWidth', 1.5);
 legend({'q_D', 'L_s'}, 'Location', 'north');
+
+%% ============================================================
+% --- Point 1.f: Design Optimization Assessment (+40% q_D) ---
+% ============================================================
+
+% Material Properties Assumption (Aerospace Aluminum 2024 or 7075)
+F.E_alu = 70e9;      % Young's Modulus [Pa]
+F.rho_alu = 2780;    % Density [kg/m^3]
+
+% Extract Baseline conditions robustly (Find the first non-NaN value)
+F.valid_indices = find(~isnan(F.q_div_history));
+F.idx_base = F.valid_indices(1); % Prende il primo indice valido (es. 15° o 16°)
+
+F.qD_baseline = real(F.q_div_history(F.idx_base));
+F.Ls_baseline = F.strut_length(F.idx_base);
+F.gamma_baseline = F.gamma_vec_deg(F.idx_base);
+
+% Define target performance
+F.target_multiplier = 1.40; 
+F.qD_target = F.qD_baseline * F.target_multiplier;
+
+% Find the first integer angle that satisfies the condition
+F.idx_optimal = find(real(F.q_div_history) >= F.qD_target, 1);
+
+%  --- DEBUG ---
+% fprintf('--- DEBUG INFO ---\n');
+% fprintf('qD Baseline (15 gradi): %.2f Pa\n', F.qD_baseline);
+% fprintf('Target da raggiungere (+40%%): %.2f Pa\n', F.qD_target);
+% fprintf('Massimo qD raggiunto nel vettore: %.2f Pa\n', max(real(F.q_div_history)));
+% fprintf('------------------\n');
+
+if ~isempty(F.idx_optimal)
+    
+    % Retrieve optimal geometry
+    F.gamma_new = F.gamma_vec_deg(F.idx_optimal);
+    F.qD_new = real(F.q_div_history(F.idx_optimal));
+    F.Ls_new = F.strut_length(F.idx_optimal);
+    
+    % Structural sizing (Cross-sectional Area A = EA / E)
+    F.A_strut = strut.EA / F.E_alu;
+    
+    % Mass calculations (m = rho * A * L)
+    F.mass_baseline = F.rho_alu * F.A_strut * F.Ls_baseline;
+    F.mass_new      = F.rho_alu * F.A_strut * F.Ls_new;
+    
+    % Variations
+    F.delta_mass_kg = F.mass_new - F.mass_baseline;
+    F.delta_mass_perc = (F.delta_mass_kg / F.mass_baseline) * 100;
+    F.delta_Ls = F.Ls_new - F.Ls_baseline;
+    
+    % Print comprehensive results to Command Window
+    fprintf('\n============================================================\n');
+    fprintf('   Point 1.f: Structural Redesign for Minimum 40%% q_D Increase\n');
+    fprintf('============================================================\n');
+    fprintf('Baseline Configuration (\\gamma = %d [deg]):\n', F.gamma_baseline);
+    fprintf('  - Divergence q_D : %10.2f [Pa]\n', F.qD_baseline);
+    fprintf('  - Strut Length   : %10.3f [m]\n', F.Ls_baseline);
+    fprintf('  - Strut Mass     : %10.2f [kg]\n\n', F.mass_baseline);
+    
+    fprintf('Optimal Target Configuration (Target q_D >= %.2f [Pa]):\n', F.qD_target);
+    fprintf('  - Optimal Angle  : %d [deg]\n', F.gamma_new);
+    fprintf('  - Achieved q_D   : %10.2f [Pa]\n', F.qD_new);
+    fprintf('  - New Length     : %10.3f [m] (Variation: %+.3f [m])\n', F.Ls_new, F.delta_Ls);
+    fprintf('  - New Mass       : %10.2f [kg]\n', F.mass_new);
+    fprintf('  - Mass Variation : %+10.2f [kg] (%+.2f %%)\n', F.delta_mass_kg, F.delta_mass_perc);
+    fprintf('============================================================\n');
+    
+    % Add visual marker to the existing plot
+    yyaxis left;
+    plot(F.gamma_new, F.qD_new, 'p', 'MarkerSize', 14, 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'y', 'HandleVisibility', 'off');
+    text(F.gamma_new + 0.5, F.qD_new, ' Optimal Design', 'FontSize', 10, 'FontWeight', 'bold');
+    
+else
+    fprintf('\n[!] No integer angle found that satisfies the +40%% requirement within the checked range.\n');
+    fprintf('    (Make sure the numerical tolerance is enabled in the physical_roots check!)\n');
+end
