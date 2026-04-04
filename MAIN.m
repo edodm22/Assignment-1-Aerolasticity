@@ -68,8 +68,8 @@ A.xB = linspace(-wing.c/2, wing.c/2, 1800);
 % Structural stiffness terms (independent of q)
 % ------------------------------------------------------------
 A.K11 = 4*wing.EJ/wing.b^3 + strut.k_eqz/16;   % bending stiffness term
-A.K22_base = wing.GJ/wing.b;             % torsional stiffness (base)
-A.K12_coeff = -strut.k_eqz/8;                    % coupling coefficient
+A.K22_base = wing.GJ/wing.b;                   % torsional stiffness (base)
+A.K12_coeff = -strut.k_eqz/8;                  % coupling coefficient
 
 % ------------------------------------------------------------
 % Aerodynamic influence coefficients
@@ -85,7 +85,7 @@ A.A12 = wing.b * wing.c * wing.CL_a / 4;
 % ------------------------------------------------------------
 % Divergence occurs when det(K - q*A) = 0
 % Here we compute q explicitly as a ratio:
-%   q_D = (structural terms) / (aerodynamic terms)
+% q_D = (structural terms) / (aerodynamic terms)
 
 A.Num = A.K11*(A.K22_base + strut.k_eqz*A.xB.^2/4) - (A.K12_coeff*A.xB).^2;
 A.D   = A.K11*(A.A22) - (A.K12_coeff*A.xB).*(A.A12);
@@ -523,7 +523,7 @@ legend('Location', 'best');
 E.N_max = 10; % Maximum number of shape functions to test (for w and theta)
 E.qD_history = zeros(1, E.N_max); % Vector to store divergence pressures
 E.N_values = 1:E.N_max;
-
+E.keq_z = strut.k_eqz;
 % Iterative loop over shape functions
 for N = E.N_values
     
@@ -568,11 +568,11 @@ for N = E.N_values
             E.phi_tj_b2 = (0.5)^j;
             
             % Addition of discrete strut terms to matrices
-            E.K_ww(i,j) = E.K_ww(i,j) + B.keq_z * E.phi_wi_b2 * E.phi_wj_b2;
-            E.K_tt(i,j) = E.K_tt(i,j) + B.keq_z * (wing.xB^2) * E.phi_ti_b2 * E.phi_tj_b2;
+            E.K_ww(i,j) = E.K_ww(i,j) + E.keq_z * E.phi_wi_b2 * E.phi_wj_b2;
+            E.K_tt(i,j) = E.K_tt(i,j) + E.keq_z * (wing.xB^2) * E.phi_ti_b2 * E.phi_tj_b2;
       
             % Flexural-torsional coupling term (K_wt and K_tw)
-            E.K_wt(i,j) = -B.keq_z * wing.xB * E.phi_wi_b2 * E.phi_tj_b2;
+            E.K_wt(i,j) = -E.keq_z * wing.xB * E.phi_wi_b2 * E.phi_tj_b2;
         end
     end
     
