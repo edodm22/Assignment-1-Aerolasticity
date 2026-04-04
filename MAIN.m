@@ -108,15 +108,20 @@ title('Divergence Pressure vs Strut Position');
 
 text(-0.48, 4e5, 'Leading Edge','FontWeight','bold');
 text(0.3, 4e5, 'Trailing Edge','FontWeight','bold');
+ylim([-2e5, 6e5]);
 
 % ------------------------------------------------------------
-% Critical position
+% Critical position (Asymptote)
 % ------------------------------------------------------------
 % This corresponds to a singularity (denominator = 0),
 % i.e. where divergence pressure tends to infinity.
-
 A.x_critic = (A.K11 * A.A22) / (A.K12_coeff * A.A12);
-A.x_critic
+
+fprintf('\n============================================================\n');
+fprintf('   Divergence Pressure Asymptote Evaluation\n');
+fprintf('============================================================\n');
+fprintf('  - Critical Strut Position (x_critic) : %6.3f [m]\n', A.x_critic);
+fprintf('============================================================\n');
 
 %% ============================================================
 %                      POINT 1.b
@@ -138,7 +143,7 @@ wing.zA = B.yB_ref * tan(B.gamma_ref);
 % ------------------------------------------------------------
 % Choose a specific chordwise position for the strut
 % ------------------------------------------------------------
-wing.xB = -0.1; 
+wing.xB = 0.3; 
 
 % ------------------------------------------------------------
 % Define parameter ranges
@@ -152,9 +157,9 @@ colors = {'r','b','g', 'c', 'm'};
 % ------------------------------------------------------------
 % Print Header for Control Reversal Pressures
 % ------------------------------------------------------------
-fprintf('\n============================================================\n');
-fprintf('   Dynamic Pressures for Control Reversal (E_C = 0)\n');
-fprintf('============================================================\n');
+% fprintf('\n============================================================\n');
+% fprintf('   Dynamic Pressures for Control Reversal (E_C = 0)\n');
+% fprintf('============================================================\n');
 
 for j = 1:length(B.gamma_deg)
 
@@ -228,32 +233,34 @@ for j = 1:length(B.gamma_deg)
             B.Ec(i) = 1 + (wing.b * wing.CL_a * B.theta) / ...
             (2 * wing.CL_beta * wing.ba);         
     end
+
     % --------------------------------------------------------
     % Find the control reversal point (E_C = 0)
     % --------------------------------------------------------
     % Find the index where E_C crosses from positive to negative
-    B.idx_zero = find(B.Ec(1:end-1) > 0 & B.Ec(2:end) <= 0, 1);
-    
-    if ~isempty(B.idx_zero)
-        % Linear interpolation to find the exact q value between the two points
-        B.q1 = B.qd_vec(B.idx_zero);
-        B.q2 = B.qd_vec(B.idx_zero + 1);
-        B.Ec1 = B.Ec(B.idx_zero);
-        B.Ec2 = B.Ec(B.idx_zero + 1);
-        
-        B.q_R_exact = B.q1 - B.Ec1 * (B.q2 - B.q1) / (B.Ec2 - B.Ec1);
-        fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = %8.2f [Pa]\n', B.gamma_deg(j), B.q_R_exact);
-    else
-        fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = Out of bounds\n', B.gamma_deg(j));
-    end
+    % B.idx_zero = find(B.Ec(1:end-1) > 0 & B.Ec(2:end) <= 0, 1);
+    % 
+    % if ~isempty(B.idx_zero)
+    %     % Linear interpolation to find the exact q value between the two points
+    %     B.q1 = B.qd_vec(B.idx_zero);
+    %     B.q2 = B.qd_vec(B.idx_zero + 1);
+    %     B.Ec1 = B.Ec(B.idx_zero);
+    %     B.Ec2 = B.Ec(B.idx_zero + 1);
+    % 
+    %     B.q_R_exact = B.q1 - B.Ec1 * (B.q2 - B.q1) / (B.Ec2 - B.Ec1);
+    %     fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = %8.2f [Pa]\n', B.gamma_deg(j), B.q_R_exact);
+    % else
+    %     fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = Out of bounds\n', B.gamma_deg(j));
+    % end
+
     % Plot curve
     plot(B.qd_vec, B.Ec, 'Color', colors{j}, 'LineWidth',2, ...
         'DisplayName',['\gamma = ', num2str(B.gamma_deg(j)), '°']);
 end
 
-% ------------------------------------------------------------
-% Final plot formatting
-% ------------------------------------------------------------
+%  ------------------------------------------------------------
+%  Final plot formatting
+%  ------------------------------------------------------------
 yline(0,'k','HandleVisibility','off');
 yline(1,'k--','Rigid Wing','HandleVisibility','off');
 
@@ -262,6 +269,8 @@ ylabel('Control Effectiveness E_C');
 title(['Control Effectiveness (x_B = ', num2str(wing.xB), ')']);
 
 legend('Location','best');
+xlim([0, 0.6e5]);   
+ylim([-80, 80]);  
 
 
 %% ============================================================
@@ -306,6 +315,83 @@ subplot(2,1,2);
 plot(C.y_span, rad2deg(C.t_noStrut), 'r--', 'LineWidth', 2); hold on;
 plot(C.y_span, rad2deg(C.t_strut), 'b', 'LineWidth', 2);
 ylabel('Twist \theta(y) [deg]'); xlabel('y [m]'); grid on;
+
+%% ============================================================
+%               WING MESH DATA PREPARATION
+%% ============================================================
+% Define chordwise resolution
+num_chord_points = 30;
+x_chord = linspace(-wing.c/2, wing.c/2, num_chord_points);
+% Generate 2D grid (X: chordwise, Y: spanwise)
+[X_mesh, Y_mesh] = meshgrid(x_chord, C.y_span);
+% Expand 1D displacement (bending) and rotation (twist) vectors to 2D matrices
+W_noStrut_2D = repmat(C.w_noStrut(:), 1, num_chord_points);
+T_noStrut_2D = repmat(C.t_noStrut(:), 1, num_chord_points);
+W_strut_2D   = repmat(C.w_strut(:), 1, num_chord_points);
+T_strut_2D   = repmat(C.t_strut(:), 1, num_chord_points);
+% Calculate Z-coordinate for every mesh point (Superposition of Bending + Twist)
+% Formula: Z(x,y) = w(y) - x * sin(theta(y))
+Z_noStrut = W_noStrut_2D - X_mesh .* sin(T_noStrut_2D);
+Z_strut   = W_strut_2D - X_mesh .* sin(T_strut_2D);
+% Undeformed geometry (reference plane at Z=0)
+Z_undeformed = zeros(size(X_mesh));
+% Graphical settings
+z_lims = [-0.1, 1.0];           % Consistent vertical limits for comparison
+c_undeformed = [0.8 0.8 0.8];   % Light gray for reference wing
+c_edge = [0.3 0.3 0.3];         % Dark gray for mesh lines
+% ============================================================
+%         FIGURE 1: 3D ISOMETRIC MESH COMPARISON
+% ============================================================
+fig1 = figure('Color','w','Name','3D Isometric Comparison', 'Position', [100, 100, 1200, 600]);
+tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+% --- TILE 1: No Strut 3D ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
+surf(X_mesh, Y_mesh, Z_noStrut, 'FaceAlpha', 0.8, 'EdgeColor', c_edge);
+colormap jet; title('1. No Strut - 3D Isometric View');
+xlabel('Chord x [m]'); ylabel('Span y [m]'); zlabel('z [m]');
+grid on; view(-35, 30); axis equal; zlim(z_lims); camlight; lighting gouraud;
+% --- TILE 2: With Strut 3D ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
+surf(X_mesh, Y_mesh, Z_strut, 'FaceAlpha', 0.8, 'EdgeColor', c_edge);
+title(['2. With Strut (\gamma = 15°) - 3D Isometric View']);
+xlabel('Chord x [m]'); ylabel('Span y [m]'); zlabel('z [m]');
+grid on; view(-35, 30); axis equal; zlim(z_lims); camlight; lighting gouraud;
+% ============================================================
+%         FIGURE: 4-VIEW PROJECTION (BENDING & TWIST)
+% ============================================================
+figure('Color','w','Name','Structural Analysis - 4 Views', 'Position', [150, 150, 1200, 800]);
+tiledlayout(2, 2, 'TileSpacing', 'loose', 'Padding', 'compact');
+% --- TOP LEFT: No Strut Side View (Bending) ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
+surf(X_mesh, Y_mesh, Z_noStrut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
+colormap jet; title('1. No Strut - Side View');
+grid on; view(0, 0); axis equal; zlim(z_lims); xlim([-0.6, 0.6]);
+ylabel('Span y [m]'); zlabel('z [m]');
+% --- TOP RIGHT: No Strut Front View (Twist) ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_noStrut);
+shading interp; % <--- Removes black lines to show the "rainbow"
+colormap jet; title('2. No Strut - Front View');
+grid on; view(90, 0); axis equal; zlim(z_lims); ylim([0, 14]);
+ylabel('Span y [m]'); zlabel('z [m]');
+% --- BOTTOM LEFT: With Strut Side View (Bending) ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
+surf(X_mesh, Y_mesh, Z_strut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
+colormap jet; title('3. With Strut - Side View');
+grid on; view(0, 0); axis equal; zlim(z_lims); xlim([-0.6, 0.6]);
+ylabel('Span y [m]'); zlabel('z [m]');
+% --- BOTTOM RIGHT: With Strut Front View (Twist) ---
+nexttile;
+surf(X_mesh, Y_mesh, Z_strut);
+shading interp; % <--- This makes the rainbow visible on the thin profile
+colormap jet;
+title(['4. With Strut (\gamma = 15°) - Front View']);
+grid on; view(90, 0); axis equal; zlim(z_lims); ylim([0, 14]);
+ylabel('Span y [m]'); zlabel('z [m]');
 
 
 %% ============================================================
@@ -395,11 +481,11 @@ title('1.d: Control Reversal vs Strut Position');
 
 % Axis limits
 xlim([-0.5, 0.5]); 
-
-% If needed, uncomment the line below:
 ylim([-5e5, 5e5]); 
 legend('Location', 'best');
-D.xB_target = -0.1;
+
+
+D.xB_target = wing.xB;
 D.K_strut_target = [D.keq_z * D.etaB^4,              -D.keq_z * D.xB_target * D.etaB^3;
                    -D.keq_z * D.xB_target * D.etaB^3, D.keq_z * D.xB_target^2 * D.etaB^2];
 D.Ks_target = D.Kw_clean + D.K_strut_target; 
@@ -676,9 +762,9 @@ if ~isempty(F.idx_optimal)
     F.delta_Ls = F.Ls_new - F.Ls_baseline;
     
     % Print comprehensive results to Command Window
-    fprintf('\n============================================================\n');
+    fprintf('\n===============================================================\n');
     fprintf('   Point 1.f: Structural Redesign for Minimum 40%% q_D Increase\n');
-    fprintf('============================================================\n');
+    fprintf('===============================================================\n');
     fprintf('Baseline Configuration (\\gamma = %d [deg]):\n', F.gamma_baseline);
     fprintf('  - Divergence q_D : %10.2f [Pa]\n', F.qD_baseline);
     fprintf('  - Strut Length   : %10.3f [m]\n', F.Ls_baseline);
