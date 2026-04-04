@@ -320,79 +320,91 @@ ylabel('Twist \theta(y) [deg]'); xlabel('y [m]'); grid on;
 %               WING MESH DATA PREPARATION
 %% ============================================================
 % Define chordwise resolution
-num_chord_points = 30;
-x_chord = linspace(-wing.c/2, wing.c/2, num_chord_points);
+mesh.num_chord_points = 30;
+mesh.x_chord = linspace(-wing.c/2, wing.c/2, mesh.num_chord_points);
+
 % Generate 2D grid (X: chordwise, Y: spanwise)
-[X_mesh, Y_mesh] = meshgrid(x_chord, C.y_span);
+[mesh.X_mesh, mesh.Y_mesh] = meshgrid(mesh.x_chord, C.y_span);
+
 % Expand 1D displacement (bending) and rotation (twist) vectors to 2D matrices
-W_noStrut_2D = repmat(C.w_noStrut(:), 1, num_chord_points);
-T_noStrut_2D = repmat(C.t_noStrut(:), 1, num_chord_points);
-W_strut_2D   = repmat(C.w_strut(:), 1, num_chord_points);
-T_strut_2D   = repmat(C.t_strut(:), 1, num_chord_points);
+mesh.W_noStrut_2D = repmat(C.w_noStrut(:), 1, mesh.num_chord_points);
+mesh.T_noStrut_2D = repmat(C.t_noStrut(:), 1, mesh.num_chord_points);
+mesh.W_strut_2D   = repmat(C.w_strut(:), 1, mesh.num_chord_points);
+mesh.T_strut_2D   = repmat(C.t_strut(:), 1, mesh.num_chord_points);
+
 % Calculate Z-coordinate for every mesh point (Superposition of Bending + Twist)
 % Formula: Z(x,y) = w(y) - x * sin(theta(y))
-Z_noStrut = W_noStrut_2D - X_mesh .* sin(T_noStrut_2D);
-Z_strut   = W_strut_2D - X_mesh .* sin(T_strut_2D);
+mesh.Z_noStrut = mesh.W_noStrut_2D - mesh.X_mesh .* sin(mesh.T_noStrut_2D);
+mesh.Z_strut   = mesh.W_strut_2D - mesh.X_mesh .* sin(mesh.T_strut_2D);
+
 % Undeformed geometry (reference plane at Z=0)
-Z_undeformed = zeros(size(X_mesh));
+mesh.Z_undeformed = zeros(size(mesh.X_mesh));
+
 % Graphical settings
-z_lims = [-0.1, 1.0];           % Consistent vertical limits for comparison
-c_undeformed = [0.8 0.8 0.8];   % Light gray for reference wing
-c_edge = [0.3 0.3 0.3];         % Dark gray for mesh lines
+mesh.z_lims = [-0.1, 1.0];           % Consistent vertical limits for comparison
+mesh.c_undeformed = [0.8 0.8 0.8];   % Light gray for reference wing
+mesh.c_edge = [0.3 0.3 0.3];         % Dark gray for mesh lines
+
 % ============================================================
 %         FIGURE 1: 3D ISOMETRIC MESH COMPARISON
 % ============================================================
 fig1 = figure('Color','w','Name','3D Isometric Comparison', 'Position', [100, 100, 1200, 600]);
 tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+
 % --- TILE 1: No Strut 3D ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
-surf(X_mesh, Y_mesh, Z_noStrut, 'FaceAlpha', 0.8, 'EdgeColor', c_edge);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_undeformed, 'FaceColor', mesh.c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_noStrut, 'FaceAlpha', 0.8, 'EdgeColor', mesh.c_edge);
 colormap jet; title('1. No Strut - 3D Isometric View');
 xlabel('Chord x [m]'); ylabel('Span y [m]'); zlabel('z [m]');
-grid on; view(-35, 30); axis equal; zlim(z_lims); camlight; lighting gouraud;
+grid on; view(-35, 30); axis equal; zlim(mesh.z_lims); camlight; lighting gouraud;
+
 % --- TILE 2: With Strut 3D ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
-surf(X_mesh, Y_mesh, Z_strut, 'FaceAlpha', 0.8, 'EdgeColor', c_edge);
-title(['2. With Strut (\gamma = 15°) - 3D Isometric View']);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_undeformed, 'FaceColor', mesh.c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none', 'HandleVisibility', 'off'); hold on;
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_strut, 'FaceAlpha', 0.8, 'EdgeColor', mesh.c_edge);
+title('2. With Strut (\gamma = 15°) - 3D Isometric View');
 xlabel('Chord x [m]'); ylabel('Span y [m]'); zlabel('z [m]');
-grid on; view(-35, 30); axis equal; zlim(z_lims); camlight; lighting gouraud;
+grid on; view(-35, 30); axis equal; zlim(mesh.z_lims); camlight; lighting gouraud;
+
 % ============================================================
 %         FIGURE: 4-VIEW PROJECTION (BENDING & TWIST)
 % ============================================================
 figure('Color','w','Name','Structural Analysis - 4 Views', 'Position', [150, 150, 1200, 800]);
 tiledlayout(2, 2, 'TileSpacing', 'loose', 'Padding', 'compact');
+
 % --- TOP LEFT: No Strut Side View (Bending) ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
-surf(X_mesh, Y_mesh, Z_noStrut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_undeformed, 'FaceColor', mesh.c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_noStrut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
 colormap jet; title('1. No Strut - Side View');
-grid on; view(0, 0); axis equal; zlim(z_lims); xlim([-0.6, 0.6]);
+grid on; view(0, 0); axis equal; zlim(mesh.z_lims); xlim([-0.6, 0.6]);
 ylabel('Span y [m]'); zlabel('z [m]');
+
 % --- TOP RIGHT: No Strut Front View (Twist) ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_noStrut);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_noStrut);
 shading interp; % <--- Removes black lines to show the "rainbow"
 colormap jet; title('2. No Strut - Front View');
-grid on; view(90, 0); axis equal; zlim(z_lims); ylim([0, 14]);
+grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
 ylabel('Span y [m]'); zlabel('z [m]');
+
 % --- BOTTOM LEFT: With Strut Side View (Bending) ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_undeformed, 'FaceColor', c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
-surf(X_mesh, Y_mesh, Z_strut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_undeformed, 'FaceColor', mesh.c_undeformed, 'FaceAlpha', 0.1, 'EdgeColor', 'none'); hold on;
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_strut, 'EdgeColor', 'k', 'EdgeAlpha', 0.2);
 colormap jet; title('3. With Strut - Side View');
-grid on; view(0, 0); axis equal; zlim(z_lims); xlim([-0.6, 0.6]);
+grid on; view(0, 0); axis equal; zlim(mesh.z_lims); xlim([-0.6, 0.6]);
 ylabel('Span y [m]'); zlabel('z [m]');
+
 % --- BOTTOM RIGHT: With Strut Front View (Twist) ---
 nexttile;
-surf(X_mesh, Y_mesh, Z_strut);
+surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_strut);
 shading interp; % <--- This makes the rainbow visible on the thin profile
 colormap jet;
 title(['4. With Strut (\gamma = 15°) - Front View']);
-grid on; view(90, 0); axis equal; zlim(z_lims); ylim([0, 14]);
+grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
 ylabel('Span y [m]'); zlabel('z [m]');
-
 
 %% ============================================================
 %                      POINT 1.d
