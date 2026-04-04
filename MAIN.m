@@ -345,7 +345,7 @@ D.xB_crit_R = (D.Ks_11 * D.Ka_rev(2,2)) / (D.K_slope * D.Ka_rev(1,2));
 % 5. Baseline: Unbraced Wing Reversal
 [~, D.D_unbraced] = eig(D.Kw_clean, D.Ka_rev);
 D.q_eig_un = diag(D.D_unbraced);
-D.valid_q_un = real(D.q_eig_un(abs(imag(D.q_eig_un)) < 1e-5 & D.q_eig_un > 0));
+D.valid_q_un = real(D.q_eig_un(abs(imag(D.q_eig_un)) < 1e-5));
 D.qR_unbraced = min(D.valid_q_un);
 
 % 6. Sweep over Strut Position xB
