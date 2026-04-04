@@ -143,7 +143,7 @@ wing.zA = B.yB_ref * tan(B.gamma_ref);
 % ------------------------------------------------------------
 % Choose a specific chordwise position for the strut
 % ------------------------------------------------------------
-wing.xB = 0.3; 
+wing.xB = -0.1; 
 
 % ------------------------------------------------------------
 % Define parameter ranges
