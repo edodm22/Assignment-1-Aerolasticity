@@ -116,6 +116,7 @@ text(0.3, 4e5, 'Trailing Edge','FontWeight','bold');
 % i.e. where divergence pressure tends to infinity.
 
 A.x_critic = (A.K11 * A.A22) / (A.K12_coeff * A.A12);
+A.x_critic
 
 %% ============================================================
 %                      POINT 1.b
@@ -309,7 +310,7 @@ ylabel('Twist \theta(y) [deg]'); xlabel('y [m]'); grid on;
 
 %% ============================================================
 %                      POINT 1.d
-%       CONTROL REVERSAL vs STRUT POSITION (N=1)
+%       CONTROL REVERSAL vs STRUT POSITION
 %% ============================================================ 
 % Find the dynamic pressure q_R at which control effectiveness 
 % becomes zero, as a function of the strut position xB.
@@ -390,20 +391,50 @@ yline(0, 'k', 'HandleVisibility', 'off');
 % Titles and labels (Standard text)
 xlabel('Strut chordwise position x_B [m]');
 ylabel('q_R [Pa]');
-title('4: Control Reversal vs Strut Position (N=1)');
+title('1.d: Control Reversal vs Strut Position');
 
 % Axis limits
 xlim([-0.5, 0.5]); 
-% Note: removed extreme ylim (-1e6, 1e6) to let MATLAB choose a readable scale.
+
 % If needed, uncomment the line below:
-% ylim([-5e5, 5e5]); 
+ylim([-5e5, 5e5]); 
+legend('Location', 'best');
+D.xB_target = -0.1;
+D.K_strut_target = [D.keq_z * D.etaB^4,              -D.keq_z * D.xB_target * D.etaB^3;
+                   -D.keq_z * D.xB_target * D.etaB^3, D.keq_z * D.xB_target^2 * D.etaB^2];
+D.Ks_target = D.Kw_clean + D.K_strut_target; 
+
+[~, D.D_braced_target] = eig(D.Ks_target, D.Ka_rev);
+D.q_eig_br_target = diag(D.D_braced_target);
+D.valid_q_br_target = real(D.q_eig_br_target(abs(imag(D.q_eig_br_target)) < 1e-5));
+
+if isempty(D.valid_q_br_target)
+    D.qR_target = NaN; 
+else
+    [~, D.idx_target] = min(abs(D.valid_q_br_target));
+    D.qR_target = D.valid_q_br_target(D.idx_target);
+end
+
+% Print to Command Window
+fprintf('\n============================================================\n');
+fprintf('   Point 1.d: Control Reversal Pressure Evaluation\n');
+fprintf('============================================================\n');
+fprintf('  - Target Strut Position x_B : %6.2f [m]\n', D.xB_target);
+fprintf('  - Reversal Pressure q_R     : %10.2f [Pa]\n', D.qR_target);
+fprintf('  - Unbraced Baseline q_R     : %10.2f [Pa]\n', D.qR_unbraced);
+fprintf('============================================================\n');
+
+% Add Evaluated Target Point Marker to the current plot
+plot(D.xB_target, D.qR_target, 'p', 'MarkerSize', 12, 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'y', 'DisplayName', sprintf('Target (x_B = %.1f)', D.xB_target));
+
+% Refresh legend to include the new marker
 legend('Location', 'best');
 %% ============================================================
 %                      POINT 1.e
 %           RITZ-GALERKIN CONVERGENCE STUDY
 %% ============================================================ 
 % Convergence study settings
-E.N_max = 8; % Maximum number of shape functions to test (for w and theta)
+E.N_max = 10; % Maximum number of shape functions to test (for w and theta)
 E.qD_history = zeros(1, E.N_max); % Vector to store divergence pressures
 E.N_values = 1:E.N_max;
 
@@ -595,7 +626,7 @@ F.limit_angle = rad2deg(atan(wing.zA / (wing.b/2)));
 xline(F.limit_angle, ':k', 'Span Limit', 'LineWidth', 1.5);
 legend({'q_D', 'L_s'}, 'Location', 'north');
 
-%% ============================================================
+% ============================================================
 % --- Point 1.f: Design Optimization Assessment (+40% q_D) ---
 % ============================================================
 
@@ -668,5 +699,4 @@ if ~isempty(F.idx_optimal)
     
 else
     fprintf('\n[!] No integer angle found that satisfies the +40%% requirement within the checked range.\n');
-    fprintf('    (Make sure the numerical tolerance is enabled in the physical_roots check!)\n');
 end
