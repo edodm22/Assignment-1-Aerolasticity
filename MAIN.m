@@ -384,7 +384,7 @@ ylabel('Span y [m]'); zlabel('z [m]');
 % --- TOP RIGHT: No Strut Front View (Twist) ---
 nexttile;
 surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_noStrut);
-shading interp; % <--- Removes black lines to show the "rainbow"
+shading interp; %  Removes black lines to show the "rainbow"
 colormap jet; title('2. No Strut - Front View');
 grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
 ylabel('Span y [m]'); zlabel('z [m]');
@@ -400,7 +400,7 @@ ylabel('Span y [m]'); zlabel('z [m]');
 % --- BOTTOM RIGHT: With Strut Front View (Twist) ---
 nexttile;
 surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_strut);
-shading interp; % <--- This makes the rainbow visible on the thin profile
+shading interp; % This makes the rainbow visible on the thin profile
 colormap jet;
 title(['4. With Strut (\gamma = 15°) - Front View']);
 grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
