@@ -634,7 +634,7 @@ end
 % Analyze the trade-off between q_D and strut length L_s.
 
 % --- Parameters for this Study ---
-F.N = 1;                  % Ritz-Galerkin order
+F.N = 5;                  % Ritz-Galerkin order
 F.toll = 1e-6;
 % --- Iteration Vectors ---
 F.gamma_vec_deg = strut.gamma_deg:1:40;         
