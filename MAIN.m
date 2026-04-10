@@ -14,11 +14,13 @@ clear
 clc
 close all
 
+%Matlab version used is MATLAB R2024b 
+
 
 % CODE
-%% ============================================================
+% ============================================================
 %                    PARAMETERS DEFINITION
-%% ============================================================
+% ============================================================
 % All physical and geometrical parameters are grouped here
 % to keep the code clean and easily modifiable.
 
@@ -40,10 +42,10 @@ wing.ba = 2.5;           % Aileron span [m]
 wing.beta0= deg2rad(10);     % Input for Point c
 
 
-%% ============================================================
+% ============================================================
 %                      POINT 1.a
-%             AEROELASTIC DIVERGENCE ANALYSIS
-%% ============================================================
+%  Divergence dynamic pressure (q_D) as a function of xB
+% ============================================================
 % Compute the divergence dynamic pressure q_D as a function
 % of the chordwise position of the strut attachment (x_B).
 
@@ -123,10 +125,10 @@ fprintf('============================================================\n');
 fprintf('  - Critical Strut Position (x_critic) : %6.3f [m]\n', A.x_critic);
 fprintf('============================================================\n');
 
-%% ============================================================
+% ============================================================
 %                      POINT 1.b
-%        CONTROL EFFECTIVENESS (FIXED POINT A)
-%% ============================================================
+%  Evolution of control effectiveness (E_c) w.r.t. q and gamma
+% ============================================================
 % Study how control effectiveness E_C varies with dynamic pressure
 % and with the strut angle gamma.
 
@@ -147,19 +149,13 @@ wing.xB = -0.1;
 
 % ------------------------------------------------------------
 % Define parameter ranges
-% ------------------------------------------------------------
-B.gamma_deg = [10, 15, 20];       % different strut inclinations
-B.gamma_deg = linspace(10,20,5); 
+% ------------------------------------------------------------      
+B.gamma_deg = linspace(10,20,5); % different strut inclinations
 B.qd_vec = linspace(0, 3e5, 1000); % dynamic pressure range
 
 figure('Color','w'); hold on; grid on;
-colors = {'r','b','g', 'c', 'm'};
-% ------------------------------------------------------------
-% Print Header for Control Reversal Pressures
-%------------------------------------------------------------
-% fprintf('\n============================================================\n');
-% fprintf('   Dynamic Pressures for Control Reversal (E_C = 0)\n');
-% fprintf('============================================================\n');
+colors = {'r', 'b', 'g', 'c', 'm'};
+
 
 for j = 1:length(B.gamma_deg)
 
@@ -234,25 +230,7 @@ for j = 1:length(B.gamma_deg)
             (2 * wing.CL_beta * wing.ba);         
     end
 
-    % --------------------------------------------------------
-    % Find the control reversal point (E_C = 0)
-    % --------------------------------------------------------
-    % Find the index where E_C crosses from positive to negative
-    % B.idx_zero = find(B.Ec(1:end-1) > 0 & B.Ec(2:end) <= 0, 1);
-    % 
-    % if ~isempty(B.idx_zero)
-    %     % Linear interpolation to find the exact q value between the two points
-    %     B.q1 = B.qd_vec(B.idx_zero);
-    %     B.q2 = B.qd_vec(B.idx_zero + 1);
-    %     B.Ec1 = B.Ec(B.idx_zero);
-    %     B.Ec2 = B.Ec(B.idx_zero + 1);
-    % 
-    %     B.q_R_exact = B.q1 - B.Ec1 * (B.q2 - B.q1) / (B.Ec2 - B.Ec1);
-    %     fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = %8.2f [Pa]\n', B.gamma_deg(j), B.q_R_exact);
-    % else
-    %     fprintf('Strut Angle \\gamma = %4.1f [deg]  -->  q_R = Out of bounds\n', B.gamma_deg(j));
-    % end
-
+    
     % Plot curve
     plot(B.qd_vec, B.Ec, 'Color', colors{j}, 'LineWidth',2, ...
         'DisplayName',['\gamma = ', num2str(B.gamma_deg(j)), '°']);
@@ -269,16 +247,16 @@ ylabel('Control Effectiveness E_C');
 title(['Control Effectiveness (x_B = ', num2str(wing.xB), ')']);
 
 legend('Location','best');
-xlim([0, 0.6e5]);   
+xlim([0, 0.3e5]);   
 ylim([-80, 80]);  
 
 
-%% ============================================================
+% ==============================================================
 %                      POINT 1.c
-%             DEFORMED SHAPE COMPARISON
-%% ============================================================
+%  Deformation of the wing: unstrutted configuration vs strutted
+% ==============================================================
 % 1. Reference: No Strut Divergence
-wing.qD_no_strut = (3 * wing.GJ) / (wing.e * wing.b^2 * wing.c * wing.CL_a); %formula ricavata a mano 
+wing.qD_no_strut = (3 * wing.GJ) / (wing.e * wing.b^2 * wing.c * wing.CL_a); %manually derived formula
 C.q_test = 0.4 * wing.qD_no_strut; 
 
 C.F_beta=B.F_beta;
@@ -286,10 +264,10 @@ C.A = B.A;
 
 % 2. System WITHOUT Strut
 C.K_noStrut = [4*wing.EJ/wing.b^3, 0; 0, wing.GJ/wing.b];
-C.sol_noStrut = (C.K_noStrut - C.q_test*C.A) \ (C.q_test * C.F_beta); % A rimane invariata
+C.sol_noStrut = (C.K_noStrut - C.q_test*C.A) \ (C.q_test * C.F_beta); 
 
 % 3. System WITH Strut (using gamma = 15 deg)
-C.g15 = deg2rad(15); % per cambiare gamma cambia qua! 
+C.g15 = deg2rad(15);  
 C.yB15 = wing.zA / tan(C.g15); 
 C.etaB15 = C.yB15 / wing.b;
 C.keq15 = (strut.EA * sin(C.g15)^3) / wing.zA;
@@ -316,9 +294,11 @@ plot(C.y_span, rad2deg(C.t_noStrut), 'r--', 'LineWidth', 2); hold on;
 plot(C.y_span, rad2deg(C.t_strut), 'b', 'LineWidth', 2);
 ylabel('Twist \theta(y) [deg]'); xlabel('y [m]'); grid on;
 
-%% ============================================================
+% ============================================================
 %               WING MESH DATA PREPARATION
-%% ============================================================
+% ============================================================
+%This section is extra and serves as a representation of the deformed wing
+%in three dimensions
 % Define chordwise resolution
 mesh.num_chord_points = 30;
 mesh.x_chord = linspace(-wing.c/2, wing.c/2, mesh.num_chord_points);
@@ -346,7 +326,7 @@ mesh.c_undeformed = [0.8 0.8 0.8];   % Light gray for reference wing
 mesh.c_edge = [0.3 0.3 0.3];         % Dark gray for mesh lines
 
 % ============================================================
-%         FIGURE 1: 3D ISOMETRIC MESH COMPARISON
+%           3D ISOMETRIC MESH COMPARISON
 % ============================================================
 fig1 = figure('Color','w','Name','3D Isometric Comparison', 'Position', [100, 100, 1200, 600]);
 tiledlayout(1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
@@ -368,7 +348,7 @@ xlabel('Chord x [m]'); ylabel('Span y [m]'); zlabel('z [m]');
 grid on; view(-35, 30); axis equal; zlim(mesh.z_lims); camlight; lighting gouraud;
 
 % ============================================================
-%         FIGURE: 4-VIEW PROJECTION (BENDING & TWIST)
+%           4-VIEW PROJECTION (BENDING & TWIST)
 % ============================================================
 figure('Color','w','Name','Structural Analysis - 4 Views', 'Position', [150, 150, 1200, 800]);
 tiledlayout(2, 2, 'TileSpacing', 'loose', 'Padding', 'compact');
@@ -384,7 +364,7 @@ ylabel('Span y [m]'); zlabel('z [m]');
 % --- TOP RIGHT: No Strut Front View (Twist) ---
 nexttile;
 surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_noStrut);
-shading interp; %  Removes black lines to show the "rainbow"
+shading interp;    %  Removes black lines to show the "rainbow" displacements
 colormap jet; title('2. No Strut - Front View');
 grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
 ylabel('Span y [m]'); zlabel('z [m]');
@@ -400,16 +380,16 @@ ylabel('Span y [m]'); zlabel('z [m]');
 % --- BOTTOM RIGHT: With Strut Front View (Twist) ---
 nexttile;
 surf(mesh.X_mesh, mesh.Y_mesh, mesh.Z_strut);
-shading interp; % This makes the rainbow visible on the thin profile
+shading interp; 
 colormap jet;
 title(['4. With Strut (\gamma = 15°) - Front View']);
 grid on; view(90, 0); axis equal; zlim(mesh.z_lims); ylim([0, 14]);
 ylabel('Span y [m]'); zlabel('z [m]');
 
-%% ============================================================
+% ============================================================
 %                      POINT 1.d
-%       CONTROL REVERSAL vs STRUT POSITION
-%% ============================================================ 
+%   Effect of the strut on the reversal dynamic pressure (q_R)
+% ============================================================ 
 % Find the dynamic pressure q_R at which control effectiveness 
 % becomes zero, as a function of the strut position xB.
 
@@ -435,7 +415,7 @@ D.Ka_rev = D.Ka - (D.Fa_unit * D.v_Lalpha') / D.L_beta_unit;
 D.etaB = wing.b/2 / wing.b; % yB/total span
 D.keq_z = (strut.EA * sin(strut.gamma)^3) / wing.zA;
 
-% 4. Analytic Asymptote (N=1 logic)
+% 4. Analytic Asymptote
 D.Ks_11 = D.Kw_clean(1,1) + D.keq_z * D.etaB^4;
 D.K_slope = -D.keq_z * D.etaB^3; 
 D.xB_crit_R = (D.Ks_11 * D.Ka_rev(2,2)) / (D.K_slope * D.Ka_rev(1,2));
@@ -477,7 +457,7 @@ xline(D.xB_crit_R, '--', 'Color', [0.5 0.5 0.5], 'HandleVisibility', 'off');
 
 % Jump handling for plot (prevents diagonal line crossing the graph)
 [~, D.split_idx] = min(abs(D.xB_vec_R - D.xB_crit_R));
-D.temp_qR_vec = D.qR_vec; % Using a temporary variable to not pollute the struct
+D.temp_qR_vec = D.qR_vec; % Using a temporary variable
 D.temp_qR_vec(D.split_idx) = NaN; 
 
 % Braced wing - Standard blue
@@ -527,12 +507,12 @@ plot(D.xB_target, D.qR_target, 'p', 'MarkerSize', 12, 'MarkerEdgeColor', 'k', 'M
 
 % Refresh legend to include the new marker
 legend('Location', 'best');
-%% ============================================================
+% ============================================================
 %                      POINT 1.e
-%           RITZ-GALERKIN CONVERGENCE STUDY
-%% ============================================================ 
+%  Convergence of q_D w.r.t. the number of shape functions N
+% ============================================================ 
 % Convergence study settings
-E.N_max = 10; % Maximum number of shape functions to test (for w and theta)
+E.N_max = 10; % Maximum number of shape functions to test (for each d.o.f. -> w and theta)
 E.qD_history = zeros(1, E.N_max); % Vector to store divergence pressures
 E.N_values = 1:E.N_max;
 E.keq_z = strut.k_eqz;
@@ -550,7 +530,8 @@ for N = E.N_values
     % Fill submatrices
     for i = 1:N
         for j = 1:N
-            % Note on integrals: we use non-dimensional coordinate eta = y/b
+            % Note on integrals: 
+            % it is used the non-dimensional coordinate eta = y/b
             % Integral from 0 to b of (y/b)^A dy equals b / (A + 1)
             
             % -- STRUCTURAL MATRICES (Clean Wing) --
@@ -573,7 +554,7 @@ for N = E.N_values
             E.pot_tt_aero = i + j;
             E.A_tt(i,j) = wing.c * wing.e * wing.CL_a * (wing.b / (E.pot_tt_aero + 1));
             
-            % -- STRUT CONTRIBUTION (Evaluated at y = b/2 -> eta = 0.5) --
+            % -- STRUT CONTRIBUTION (Evaluated at eta = 0.5) --
             E.phi_wi_b2 = (0.5)^(i+1);
             E.phi_wj_b2 = (0.5)^(j+1);
             E.phi_ti_b2 = (0.5)^i;
@@ -596,12 +577,13 @@ for N = E.N_values
     E.A_global = [zeros(N,N), E.A_wt; 
                 zeros(N,N), E.A_tt];
             
-    % 5. Resolution of Eigenvalue Problem (Divergence)
+    % 5. Resolution of Eigenvalue Problem 
     % (K_global - qD * A_global) * {q} = 0
     [E.V, E.D] = eig(E.K_global, E.A_global);
     E.eig = diag(E.D);
     
-    % Filter only physical eigenvalues (real and strictly positive)
+    % Filter only physical eigenvalues (real and strictly positive, since 
+    % we know that in this position of xB we have a positive qd)
     E.qd = E.eig(imag(E.eig) == 0 & real(E.eig) > 0);
     
     if isempty(E.eig)
@@ -626,12 +608,42 @@ for i = 1:E.N_max
     fprintf('N = %d -> q_D = %.2f Pa\n', i, E.qD_history(i));
 end
 
+% =========================
+%  Relative Error Check
+% =========================
+% Initialize the vector 
+E.rel_error = zeros(size(E.qD_history));
 
-%% ============================================================
+% Relative error computation w.r.t the next N: |qD(N) - qD(N+1)| / |qD(N+1)|
+E.rel_error(1:end-1) = abs((E.qD_history(1:end-1) - E.qD_history(2:end)) ./ E.qD_history(2:end));
+
+% Optimal N with the target reached 
+E.tol = 0.005;  % target
+E.idx_conv = find(E.rel_error < E.tol, 1, 'first');
+
+if isempty(E.idx_conv)
+    % Warning if convergence is not reached
+    fprintf('\n--- Convergence Tolerance Check (< 0.5%%) ---\n');
+    fprintf('WARNING: Convergence not reached within N_max = %d.\n', E.N_max);
+    fprintf('Minimum recorded error is: %.4f%%\n', min(E.rel_error) * 100);
+    fprintf('============================================================\n');
+else
+    E.N_conv = E.N_values(E.idx_conv);
+    E.qD_conv = E.qD_history(E.idx_conv);
+
+    % Results print
+    fprintf('\n--- Convergence Tolerance Check ---\n');
+    fprintf('Convergence reached for N = %d (compared to N = %d)\n', E.N_conv, E.N_conv + 1);
+    fprintf('q_D(N=%d)   = %.2f Pa\n', E.N_conv, E.qD_conv);
+    fprintf('q_D(N=%d) = %.2f Pa\n', E.N_conv + 1, E.qD_history(E.idx_conv + 1));
+    fprintf('Relative error : %.4f%%\n', E.rel_error(E.idx_conv) * 100);
+    fprintf('============================================================\n');
+end
+% ============================================================
 %                      POINT 1.f
-%    MULTIDISCIPLINARY ANALYSIS: DIVERGENCE vs GEOMETRY
-%% ============================================================
-% Analyze the trade-off between q_D and strut length L_s.
+%  Structural Optimization for Divergence Pressure Enhancement
+% ============================================================
+% Analyze the trade-off between q_D and gamma parameter
 
 % --- Parameters for this Study ---
 F.N = 5;                  % Ritz-Galerkin order
@@ -692,7 +704,7 @@ for step = 1:length(F.gamma_vec_deg)
     
     [~, F.D_eig] = eig(F.K_global, F.A_global);
     F.eigs_val = diag(F.D_eig);
-    %F.physical_roots = F.eigs_val(imag(F.eigs_val) == 0 & real(F.eigs_val) > 0 & ~isinf(F.eigs_val));
+    %Check on roots:
     F.physical_roots = F.eigs_val(abs(imag(F.eigs_val)) < F.toll & real(F.eigs_val) > 0 & ~isinf(F.eigs_val));
     if isempty(F.physical_roots)
         F.q_div_history(step) = NaN;
@@ -701,7 +713,7 @@ for step = 1:length(F.gamma_vec_deg)
     end
 end
 
-% --- Plotting (Light Mode) ---
+% --- Plotting ---
 figure('Color','w','Name','Point 5: Multidisciplinary Analysis');
 grid on; hold on;
 
@@ -724,9 +736,9 @@ F.limit_angle = rad2deg(atan(wing.zA / (wing.b/2)));
 xline(F.limit_angle, ':k', 'Span Limit', 'LineWidth', 1.5);
 legend({'q_D', 'L_s'}, 'Location', 'north');
 
-% ============================================================
-% --- Point 1.f: Design Optimization Assessment (+40% q_D) ---
-% ============================================================
+% ===============================================================
+% Design Optimization Assessment (+40% q_D) and mass computation 
+% ===============================================================
 
 % Material Properties Assumption (Aerospace Aluminum 2024 or 7075)
 F.E_alu = 70e9;      % Young's Modulus [Pa]
@@ -734,7 +746,7 @@ F.rho_alu = 2780;    % Density [kg/m^3]
 
 % Extract Baseline conditions robustly (Find the first non-NaN value)
 F.valid_indices = find(~isnan(F.q_div_history));
-F.idx_base = F.valid_indices(1); % Prende il primo indice valido (es. 15° o 16°)
+F.idx_base = F.valid_indices(1); % Find the first index value
 
 F.qD_baseline = real(F.q_div_history(F.idx_base));
 F.Ls_baseline = F.strut_length(F.idx_base);
@@ -746,13 +758,6 @@ F.qD_target = F.qD_baseline * F.target_multiplier;
 
 % Find the first integer angle that satisfies the condition
 F.idx_optimal = find(real(F.q_div_history) >= F.qD_target, 1);
-
-%  --- DEBUG ---
-% fprintf('--- DEBUG INFO ---\n');
-% fprintf('qD Baseline (15 gradi): %.2f Pa\n', F.qD_baseline);
-% fprintf('Target da raggiungere (+40%%): %.2f Pa\n', F.qD_target);
-% fprintf('Massimo qD raggiunto nel vettore: %.2f Pa\n', max(real(F.q_div_history)));
-% fprintf('------------------\n');
 
 if ~isempty(F.idx_optimal)
     
